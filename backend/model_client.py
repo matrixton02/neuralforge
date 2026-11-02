@@ -31,19 +31,34 @@ async def generate_response(conversation):
             "Real Qwen inference will be enabled when we reconnect to Modal."
         ),None
 
-    history=conversation[-MAX_HISTORY_MESSAGE:]
+    history = conversation[-MAX_HISTORY_MESSAGE:]
 
-    messages=[
-        {"role":"system","content":SYSTEM_PROMPT}
+    messages = [
+        {
+            "role": "system",
+            "content": SYSTEM_PROMPT
+        }
     ]
 
-    messages.extend([
-        {
-            "role":message["role"],
-            "content":message["content"]
-        }
-        for message in history
-    ])
+# Only include valid conversation messages
+    for message in history:
+
+        if not isinstance(message, dict):
+            continue
+
+        role = message.get("role")
+        content = message.get("content")
+
+        if role not in ("user", "assistant"):
+            continue
+
+        if not isinstance(content, str):
+            continue
+
+        messages.append({
+            "role": role,
+            "content": content
+        })
 
     response=await client.chat.completions.create(
         model=MODEL_NAME,

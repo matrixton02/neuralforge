@@ -69,7 +69,7 @@ async def list_sessions():
 @app.get("/api/sessions/{session_id}")
 async def get_session(session_id:str):
     try:
-        messages=session_manager.get_messages(session_id)
+        messages=session_manager.get_message(session_id)
 
         return {
             "session_id":session_id,
@@ -104,7 +104,7 @@ async def char(request: ChatRequest):
         session_id=session_manager.create_session()
 
     try:
-        conversation=session_manager.get_messages(session_id)
+        conversation=session_manager.get_message(session_id)
 
         session_manager.apppend_message(
             session_id,
@@ -142,7 +142,7 @@ async def char(request: ChatRequest):
 
         raise HTTPException(
             status_code=502,
-            detial="Modal inference failed. Check the backend logs."
+            detail="Modal inference failed. Check the backend logs."
         )
 
 """

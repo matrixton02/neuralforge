@@ -37,9 +37,9 @@ class SessionManager:
         }
 
         with path.open("a",encoding="utf-8") as file:
-            file.write(json.dump(message,ensure_ascii=False)+"\n")
+            file.write(json.dumps(message,ensure_ascii=False)+"\n")
 
-    def get_messages(self,session_id):
+    def get_message(self,session_id):
         path=self._get_path(session_id)
 
         if not path.exists():
@@ -64,16 +64,24 @@ class SessionManager:
 
                 first_user_message=next(
                     (
-                        message["content"]
+                        message.get("content", "")
                         for message in messages
-                        if message["role"]=="user"
+                        if isinstance(message, dict)
+                        and message.get("role") == "user"
+                        and isinstance(message.get("content"), str)
                     ),
                     "New conversation"
                 )
 
-                last_timestamp=(
-                    messages[-1]["timestamp"] if messages else None
-                )
+                last_timestamp = next(
+                    (
+                        message.get("timestamp")
+                        for message in reversed(messages)
+                        if isinstance(message, dict)
+                        and message.get("timestamp")
+                    ),
+                    None
+            )
 
                 sessions.append({
                     "session_id":session_id,
@@ -81,8 +89,9 @@ class SessionManager:
                     "message_count":len(messages),
                     "updated_at":last_timestamp
                 })
-            except(FileNotFoundError,json.JSONDecodeError):
-                continue
+            except (FileNotFoundError, json.JSONDecodeError, OSError) as error:
+                print(f"Skipping invalid session {path.name}: {error}")
+                continue    
 
         sessions.sort(
             key=lambda session: session["updated_at"] or "",
