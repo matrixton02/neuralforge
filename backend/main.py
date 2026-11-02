@@ -4,6 +4,10 @@ from fastapi import FastAPI,HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel,Field
 
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+
+from backend.config import PROJECT_ROOT
 from backend.session_manager import session_manager
 from backend.model_client import generate_response
 
@@ -14,6 +18,14 @@ app=FastAPI(
     title="Cloud LLM Platform",
     description="A cloud-hosted LLM inference and conversation management platform",
     version="1.0.0"
+)
+
+FRONTEND_DIR = PROJECT_ROOT / "frontend"
+
+app.mount(
+    "/static",
+    StaticFiles(directory=FRONTEND_DIR),
+    name="static"
 )
 
 app.add_middleware(
@@ -27,6 +39,10 @@ app.add_middleware(
 class ChatRequest(BaseModel):
     session_id:str|None=None
     message:str=Field(min_length=1,max_length=20000)
+
+@app.get("/")
+async def root():
+    return FileResponse(FRONTEND_DIR / "index.html")
 
 @app.get("/api/healthy")
 async def health():
