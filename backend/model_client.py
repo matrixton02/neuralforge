@@ -1,4 +1,5 @@
 from openai import AsyncOpenAI
+import asyncio
 
 from backend.config import(
     MODAL_BASE_URL,
@@ -12,14 +13,33 @@ from backend.config import(
 client=None
 
 if not MODEL_MOCK:
+    if not MODAL_BASE_URL:
+        raise RuntimeError("MODAL_BASE_URL is missing from .env")
     if not VLLM_API_KEY:
-        raise RuntimeError("VLLM_API_KEY is missing from ,env")
+        raise RuntimeError("VLLM_API_KEY is missing from .env")
+    if not MODEL_NAME:
+        raise RuntimeError("MODEL_NAME is missing from .env")
 
     client=AsyncOpenAI(
         base_url=MODAL_BASE_URL,
         api_key=VLLM_API_KEY,
         timeout=300.0
     )
+
+
+def _prepare_messages(conversation):
+    messages=[{"role":"system","content":SYSTEM_PROMPT}]
+    for message in conversation[-MAX_HISTORY_MESSAGE:]:
+        if not isinstance(message,dict):
+            continue
+
+        role=message.get("role") or message.get("roles")
+        content=message.get("content")
+
+        if role in ("user","assistant") and isinstance(content,str):
+            message.append({"role":role,"content":content})
+
+    return messages
 
 async def generate_response(conversation):
 
@@ -31,50 +51,59 @@ async def generate_response(conversation):
             "Real Qwen inference will be enabled when we reconnect to Modal."
         ),None
 
-    history = conversation[-MAX_HISTORY_MESSAGE:]
-
-    messages = [
-        {
-            "role": "system",
-            "content": SYSTEM_PROMPT
-        }
-    ]
-
-# Only include valid conversation messages
-    for message in history:
-
-        if not isinstance(message, dict):
-            continue
-
-        role = message.get("role")
-        content = message.get("content")
-
-        if role not in ("user", "assistant"):
-            continue
-
-        if not isinstance(content, str):
-            continue
-
-        messages.append({
-            "role": role,
-            "content": content
-        })
-
-    response=await client.chat.completions.create(
+    response = await client.chat.completions.create(
         model=MODEL_NAME,
-        messages=messages,
+        messages=_prepare_messages(conversation),
         temperature=0.7,
-        max_tokens=512
+        max_tokens=512,
+    )
+    answer = response.choices[0].message.content or ""
+    usage = None
+    if response.usage:
+        usage = {
+            "prompt_tokens": response.usage.prompt_tokens,
+            "completion_tokens": response.usage.completion_tokens,
+            "total_tokens": response.usage.total_tokens,
+        }
+    return answer, usage
+
+async def stream_response(conversation):
+    """Yield token and usage events; mock mode also streams for local testing."""
+    if MODEL_MOCK:
+        mock_text = (
+            "This is a **streaming mock response** from NeuralForge. "
+            "The browser should display this text progressively, rather than "
+            "waiting for the complete response.\n\n"
+            "```python\ndef kalman_update(state, measurement):\n"
+            "    return state + 0.5 * (measurement - state)\n```"
+        )
+        for start in range(0, len(mock_text), 9):
+            await asyncio.sleep(0.035)
+            yield {"type": "token", "content": mock_text[start:start + 9]}
+        yield {"type": "usage", "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}}
+        return
+
+    stream = await client.chat.completions.create(
+        model=MODEL_NAME,
+        messages=_prepare_messages(conversation),
+        temperature=0.7,
+        max_tokens=512,
+        stream=True,
+        stream_options={"include_usage": True},
     )
 
-    answer=response.choices[0].message.content
-
-    usage=None
-    if response.usage:
-        usage={
-            "prompt_tokens":response.usage.prompt_tokens,
-            "compltetion_tokens":response.usage.completion_tokens,
-            "total_tokens":response.usage.total_tokens
-        }
-
-    return answer,usage
+    async for chunk in stream:
+        if chunk.usage is not None:
+            yield {
+                "type": "usage",
+                "usage": {
+                    "prompt_tokens": chunk.usage.prompt_tokens,
+                    "completion_tokens": chunk.usage.completion_tokens,
+                    "total_tokens": chunk.usage.total_tokens,
+                },
+            }
+        if not chunk.choices:
+            continue
+        content = getattr(chunk.choices[0].delta, "content", None)
+        if content:
+            yield {"type": "token", "content": content}

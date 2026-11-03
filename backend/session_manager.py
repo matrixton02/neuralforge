@@ -13,7 +13,7 @@ class SessionManager:
         self.storage_dir.mkdir(parents=True,exist_ok=True)
 
     def _get_path(self,session_id):
-        if not re.fullmatch(r"[a-z0-9]{32}",session_id):
+        if not isinstance(session_id,str) or not re.fullmatch(r"[a-z0-9]{32}",session_id):
             raise FileNotFoundError("Invalid Session ID")
 
         return self.storage_dir/f"{session_id}.jsonl"
@@ -24,7 +24,7 @@ class SessionManager:
 
         return session_id
 
-    def apppend_message(self,session_id,roles,content):
+    def append_message(self,session_id,roles,content):
         path=self._get_path(session_id)
 
         if not path.exists():
@@ -39,6 +39,9 @@ class SessionManager:
         with path.open("a",encoding="utf-8") as file:
             file.write(json.dumps(message,ensure_ascii=False)+"\n")
 
+    def append_messages(self, session_id, roles, content):
+        self.append_message(session_id, roles, content)
+
     def get_message(self,session_id):
         path=self._get_path(session_id)
 
@@ -47,11 +50,16 @@ class SessionManager:
 
         messages=[]
 
-        with path.open("r",encoding="utf-8") as file:
+        with path.open("r", encoding="utf-8") as file:
             for line in file:
-                if line.strip():
-                    messages.append(json.loads(line))
-
+                if not line.strip():
+                    continue
+                message = json.loads(line)
+                if isinstance(message, dict):
+                    if "role" not in message and "roles" in message:
+                        message["role"] = message["roles"]
+                    message.pop("roles", None)
+                messages.append(message)
         return messages
 
     def list_sessions(self):
@@ -77,8 +85,7 @@ class SessionManager:
                     (
                         message.get("timestamp")
                         for message in reversed(messages)
-                        if isinstance(message, dict)
-                        and message.get("timestamp")
+                        if isinstance(message, dict) and message.get("timestamp")
                     ),
                     None
             )
