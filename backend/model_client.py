@@ -37,7 +37,7 @@ def _prepare_messages(conversation):
         content=message.get("content")
 
         if role in ("user","assistant") and isinstance(content,str):
-            message.append({"role":role,"content":content})
+            messages.append({"role":role,"content":content})
 
     return messages
 
@@ -55,7 +55,7 @@ async def generate_response(conversation):
         model=MODEL_NAME,
         messages=_prepare_messages(conversation),
         temperature=0.7,
-        max_tokens=512,
+        max_tokens=2048,
     )
     answer = response.choices[0].message.content or ""
     usage = None
@@ -87,7 +87,7 @@ async def stream_response(conversation):
         model=MODEL_NAME,
         messages=_prepare_messages(conversation),
         temperature=0.7,
-        max_tokens=512,
+        max_tokens=2048,
         stream=True,
         stream_options={"include_usage": True},
     )

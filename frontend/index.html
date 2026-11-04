@@ -10,9 +10,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 
-    <!-- Highlight.js theme for fenced code blocks -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/github-dark.min.css">
-
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
@@ -104,6 +102,9 @@
             <div class="input-shell">
                 <div class="input-wrapper">
                     <textarea id="messageInput" placeholder="Message NeuralForge..." rows="1" aria-label="Message NeuralForge"></textarea>
+                    <button id="stopButton" class="stop-button" type="button" title="Stop generation" aria-label="Stop generation" hidden>
+                        <span></span>
+                    </button>
                     <button id="sendButton" class="send-button" title="Send message" aria-label="Send message">
                         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"/></svg>
                     </button>
@@ -117,7 +118,6 @@
     </main>
 </div>
 
-<!-- Markdown parser, sanitizer and syntax highlighter -->
 <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/highlight.min.js"></script>

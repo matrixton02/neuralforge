@@ -32,7 +32,7 @@ vllm_image=(
     startup_timeout=20*MINUTES,
     volumes={
         "/root/.cache/huggingface":hf_cache,
-        "/root/.cache/vllm  ":vllm_cache,
+        "/root/.cache/vllm":vllm_cache,
     },
     secrets=[modal.Secret.from_name("qwen-api-secret")],
     port=PORT,
@@ -59,7 +59,7 @@ class QwenServer:
             "--dtype",
             "bfloat16",
             "--max-model-len",
-            "4096",
+            "8192",
             "--gpu-memory-utilization",
             "0.85",
             "--api-key",
