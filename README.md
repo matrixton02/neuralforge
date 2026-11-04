@@ -1,89 +1,118 @@
 # NeuralForge ⚡
 
-### A Cloud-Based LLM Inference Platform Using vLLM and Modal
+### A Self-Hosted, Cloud-Powered AI Coding Assistant Platform
 
-NeuralForge is a modular, cloud-powered Large Language Model (LLM)
-inference platform. It lets users interact with a remotely hosted
-language model through a browser-based chat interface.
+NeuralForge is a modular AI assistant platform built around open-source language models. It provides a browser-based interface for interacting with a remotely hosted LLM, while keeping the application backend independent from the GPU infrastructure used for inference.
 
-The application separates the user-facing interface and backend from
-GPU-intensive model execution. The frontend and FastAPI backend manage
-requests and conversations, while the model runs remotely using **vLLM
-on Modal GPU infrastructure**.
+The current implementation uses **Qwen2.5-7B-Instruct**, served through **vLLM on Modal GPU infrastructure**, with a **FastAPI** backend and a lightweight HTML, CSS and JavaScript frontend.
 
-The initial implementation uses **Qwen2.5-7B-Instruct** served on an
-**NVIDIA L4 GPU**.
+NeuralForge is being developed as both:
+- A powerful personal AI coding assistant.
+- A portfolio and research-engineering project exploring the infrastructure required to deploy customizable AI assistants for individuals and small organizations.
 
-------------------------------------------------------------------------
+The longer-term direction is to support document understanding, retrieval-augmented generation (RAG), controlled tool use, multi-user access, and organization-specific permissions—without redesigning the core application architecture for every new capability.
 
-## ✨ Features
+---
 
--   **Remote LLM inference:** Run a language model on cloud GPU
-    infrastructure without needing a local GPU.
--   **vLLM model serving:** Expose the model through an
-    OpenAI-compatible API.
--   **FastAPI backend:** Handle chat requests and conversation
-    management.
--   **Browser-based interface:** Chat UI built with HTML, CSS and
-    JavaScript.
--   **Session management:** Create, retrieve, list and delete
-    conversations.
--   **Conversation persistence:** Store messages in individual JSONL
-    files.
--   **Modular codebase:** Separate configuration, model communication,
-    session management and API routing.
--   **Mock mode:** Test the application without activating the remote
-    GPU.
+## ✨ Current Features
+
+- **Remote LLM inference:** Run an open-source language model on cloud GPU infrastructure without requiring a local GPU.
+- **vLLM model serving:** Communicate with the model through an OpenAI-compatible API.
+- **FastAPI backend:** Handle chat requests, streaming responses, health checks and session management.
+- **Browser-based chat interface:** Frontend built with HTML, CSS and JavaScript.
+- **Streaming responses:** Stream generated text from the backend to the browser.
+- **Session management:** Create, retrieve, list and delete conversations.
+- **Persistent conversations:** Store messages in individual JSONL session files.
+- **Containerized deployment:** Package the application using Docker.
+- **Remote application hosting:** Run the application on an AWS EC2 instance.
+- **Independent inference infrastructure:** Keep the application server separate from the GPU-backed model server.
+- **Mock mode:** Exercise the application without activating remote GPU inference.
+
+## 🧭 Design Philosophy
+
+The central application architecture is intended to remain stable as NeuralForge grows.
+
+The frontend communicates with a FastAPI backend. The backend coordinates sessions, model requests and supporting services. New capabilities—such as file processing, web search and RAG—can be introduced as separate backend modules and exposed through additional API endpoints.
+
+This keeps the system modular: adding a capability should generally extend the backend rather than require a complete architectural redesign.
+
+---
 
 ## 🏗️ Architecture
 
-``` mermaid
+### Current architecture
+
+```mermaid
 flowchart TD
     A["User / Browser"] --> B["Frontend<br/>HTML, CSS, JavaScript"]
-    B --> C["FastAPI Backend"]
-    C --> D["Session Manager"]
-    D --> E["JSONL Session Storage"]
-    C --> F["Model Client"]
-    F -->|"HTTPS / OpenAI-compatible API"| G["Modal Cloud"]
-    G --> H["NVIDIA L4 GPU"]
-    H --> I["vLLM Inference Engine"]
-    I --> J["Qwen2.5-7B-Instruct"]
-    J --> I
-    I --> F
-    F --> C
+    B -->|"HTTP / streaming requests"| C["FastAPI Backend"]
+    C --> D["API Routes"]
+    D --> E["Session Manager"]
+    E --> F["JSONL Session Storage"]
+    D --> G["Model Client"]
+    G -->|"HTTPS / OpenAI-compatible API"| H["Modal Cloud"]
+    H --> I["GPU Infrastructure"]
+    I --> J["vLLM Inference Engine"]
+    J --> K["Qwen2.5-7B-Instruct"]
+    K --> J
+    J --> G
+    G --> C
     C --> B
 ```
 
 ### Request lifecycle
 
-1.  A user submits a prompt through the browser interface.
-2.  JavaScript sends the request to the FastAPI backend.
-3.  The backend retrieves the relevant conversation history.
-4.  The model client sends the conversation to the Modal inference
-    endpoint.
-5.  vLLM executes inference using Qwen2.5-7B-Instruct on the remote GPU.
-6.  The assistant response is saved in the session's JSONL file.
-7.  FastAPI returns the response to the browser.
+1. A user submits a prompt through the browser interface.
+2. The frontend sends the request to a FastAPI endpoint.
+3. The backend retrieves the relevant conversation history.
+4. The model client sends the conversation to the remote Modal inference endpoint.
+5. vLLM executes inference using Qwen2.5-7B-Instruct on the provisioned GPU.
+6. The assistant response is saved in the session's JSONL file.
+7. FastAPI returns the response—or streams generated text—to the browser.
+
+### Deployment architecture
+
+```mermaid
+flowchart TD
+    A["User's Device"] --> B["DuckDNS Domain"]
+    B --> C["AWS EC2 Instance"]
+    C --> D["Nginx Reverse Proxy"]
+    D --> E["Docker Container"]
+    E --> F["FastAPI + Frontend"]
+    F --> G["Modal HTTPS Endpoint"]
+    G --> H["vLLM on GPU"]
+```
+
+The application server and model inference server are independent. The EC2 instance hosts the web application and API, while Modal provisions GPU resources for model inference.
+
+---
 
 ## 🛠️ Technology Stack
 
-  Component            Technology
-  -------------------- -----------------------
-  Language             Python 3.12
-  Frontend             HTML, CSS, JavaScript
-  Backend              FastAPI
-  ASGI server          Uvicorn
-  Language model       Qwen2.5-7B-Instruct
-  Inference engine     vLLM
-  GPU infrastructure   Modal
-  GPU                  NVIDIA L4
-  API client           OpenAI Python SDK
-  Session storage      JSONL
-  Configuration        python-dotenv
+| Component | Technology |
+|---|---|
+| Programming language | Python |
+| Frontend | HTML, CSS, JavaScript |
+| Backend framework | FastAPI |
+| ASGI server | Uvicorn |
+| Language model | Qwen2.5-7B-Instruct |
+| Inference engine | vLLM |
+| GPU inference platform | Modal |
+| API client | OpenAI Python SDK |
+| Session storage | JSONL files |
+| Configuration | python-dotenv |
+| Containerization | Docker |
+| Application hosting | AWS EC2 |
+| Container registry | Amazon ECR |
+| Reverse proxy | Nginx |
+| Domain | DuckDNS |
+| HTTPS | Let's Encrypt / Certbot |
+
+---
 
 ## 📁 Project Structure
 
-``` text
+```text
 NeuralForge/
 ├── backend/
 │   ├── __init__.py
@@ -95,33 +124,39 @@ NeuralForge/
 │   ├── index.html
 │   ├── style.css
 │   └── script.js
-├── storage/
-│   └── sessions/
 ├── modal_deployment/
 │   ├── deploy.py
 │   ├── gpu_test.py
 │   └── test_vllm_1.py
+├── storage/
+│   └── sessions/
+├── Dockerfile
+├── docker-compose.yml
+├── .dockerignore
 ├── .env                  # Create locally; never commit
 ├── .gitignore
 ├── requirements.txt
 └── README.md
 ```
 
+The `storage/` directory contains local session data during development. In the Docker deployment, persistent session data is mounted through a named Docker volume.
+
+---
+
 ## ⚙️ Getting Started
 
 ### Prerequisites
 
--   Python 3.12
--   Git
--   A Modal account for remote inference
--   Modal CLI configured for your account
+- Python 3.10 or later
+- Git
+- A Modal account for remote inference
+- Modal CLI configured for your account
 
-The frontend and backend can be tested locally in mock mode without
-starting a GPU container.
+Docker is optional for local development, but required if you want to run the application using the provided container configuration.
 
 ### 1. Clone the repository
 
-``` bash
+```bash
 git clone https://github.com/YOUR_USERNAME/YOUR_REPOSITORY.git
 cd YOUR_REPOSITORY
 ```
@@ -130,23 +165,23 @@ Replace the URL with your actual GitHub repository URL.
 
 ### 2. Create and activate a virtual environment
 
-**Windows PowerShell:**
-
-``` powershell
-python -m venv .venv
-.venv\Scripts\Activate.ps1
-```
-
 **Linux / macOS:**
 
-``` bash
+```bash
 python3 -m venv .venv
 source .venv/bin/activate
 ```
 
+**Windows PowerShell:**
+
+```powershell
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+```
+
 ### 3. Install dependencies
 
-``` bash
+```bash
 pip install -r requirements.txt
 ```
 
@@ -154,57 +189,50 @@ pip install -r requirements.txt
 
 Create a `.env` file in the project root:
 
-``` env
-VLLM_API_KEY=your_api_key
+```env
 MODAL_BASE_URL=https://YOUR_MODAL_ENDPOINT/v1
+VLLM_API_KEY=your_api_key
 MODEL_NAME=qwen2.5-7b
-
 MODEL_MOCK=true
 ```
 
-Use the endpoint URL generated by your Modal deployment. The API key
-must match the secret configured for the Modal application.
+Use the endpoint generated by your Modal deployment. The API key must match the secret configured for the Modal application.
 
-**Security:** Never commit `.env`, expose the inference API key in
-frontend JavaScript, or include secrets in screenshots or logs shared
-publicly.
+**Security reminders:**
+- Never commit `.env`.
+- Never expose the inference API key in frontend JavaScript.
+- Do not include secrets in screenshots, logs or public issue reports.
+- Use a separate secret-management mechanism for production deployments.
 
 ### 5. Run locally in mock mode
 
-Set:
+Keep the following setting in `.env`:
 
-``` env
+```env
 MODEL_MOCK=true
 ```
 
 Start the backend from the repository root:
 
-``` bash
+```bash
 uvicorn backend.main:app --reload
 ```
 
-Open the application:
+Open the application at `http://127.0.0.1:8000`.
 
-``` text
-http://127.0.0.1:8000
-```
+FastAPI's interactive API documentation is available at `http://127.0.0.1:8000/docs`.
 
-FastAPI's interactive API documentation is available at:
+Mock mode exercises the application without sending inference requests to Modal.
 
-``` text
-http://127.0.0.1:8000/docs
-```
+---
 
-Mock mode exercises the frontend, backend routes and session management
-without making inference requests to Modal.
-
-## ☁️ Deploying the model on Modal
+## ☁️ Deploying the Model on Modal
 
 NeuralForge uses Modal to host the GPU-backed vLLM inference server.
 
 ### 1. Install and authenticate the Modal CLI
 
-``` bash
+```bash
 pip install modal
 modal setup
 ```
@@ -213,92 +241,113 @@ Complete the authentication flow.
 
 ### 2. Create the Modal secret
 
-The deployment expects a secret named `qwen-api-secret` containing
-`VLLM_API_KEY`.
+The deployment expects a secret named `qwen-api-secret` containing `VLLM_API_KEY`.
 
-``` bash
+```bash
 modal secret create qwen-api-secret VLLM_API_KEY=YOUR_SECRET
 ```
 
-Use the same secret value in the local `.env` file. Do not publish it.
+Use the same secret value in the application's `.env` file. Do not publish it.
 
 ### 3. Deploy the inference application
 
 From the repository root:
 
-``` bash
+```bash
 modal deploy modal_deployment/deploy.py
 ```
 
-Use the endpoint URL printed by Modal as `MODAL_BASE_URL`, with `/v1`
-appended if required by the deployment URL.
+Use the endpoint URL printed by Modal as `MODAL_BASE_URL`, appending `/v1` where required by the deployment.
 
-The first request may take longer while Modal provisions a GPU and vLLM
-loads the model. Persistent Modal Volumes are configured for model and
-inference caches.
+The first request may take longer while Modal provisions GPU resources and vLLM loads the model. Model and inference caches may use the persistent Modal Volumes configured by the deployment.
 
 ### 4. Enable real inference
 
-Change the local `.env` setting:
+Set the following in `.env`:
 
-``` env
+```env
 MODEL_MOCK=false
 ```
 
-Restart Uvicorn so the backend reloads the environment configuration:
+Restart the backend so it reloads the environment configuration:
 
-``` bash
+```bash
 uvicorn backend.main:app --reload
 ```
 
-Open the web interface and send a prompt. FastAPI will forward it to the
-remote Qwen model through Modal.
+Send a prompt through the web interface. FastAPI forwards the request to the Modal-hosted model.
 
-**Cost note:** GPU usage is subject to Modal's current pricing and
-billing rules. Stop the deployed application or allow its configured
-idle scale-down when you are finished testing. Check the Modal dashboard
-for actual usage.
+**Cost note:** GPU usage is subject to Modal's current pricing and deployment configuration. Check the Modal dashboard and stop or scale down GPU resources when they are not needed.
+
+---
+
+## 🐳 Running with Docker
+
+Build and start the application from the repository root:
+
+```bash
+sudo docker compose up -d --build
+```
+
+View container status:
+
+```bash
+sudo docker compose ps
+```
+
+View application logs:
+
+```bash
+sudo docker compose logs -f
+```
+
+Stop the application:
+
+```bash
+sudo docker compose down
+```
+
+The Compose configuration uses a named Docker volume for `/app/storage`, preserving session data when the application container is recreated. Do not use `docker compose down -v` unless you intentionally want to delete the named volume and its stored data.
+
+The container reads environment variables from the root `.env` file. Keep that file out of source control and out of the Docker image.
+
+---
 
 ## 🔌 API Endpoints
 
-  ------------------------------------------------------------------------------
-  Method                  Endpoint                       Description
-  ----------------------- ------------------------------ -----------------------
-  `GET`                   `/`                            Serves the web
-                                                         interface
+The current core endpoints are:
 
-  `GET`                   `/api/health`                  Backend health check
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `GET` | `/` | Serves the web interface |
+| `GET` | `/api/healthy` | Backend health check |
+| `POST` | `/api/sessions` | Creates a conversation |
+| `GET` | `/api/sessions` | Lists conversations |
+| `GET` | `/api/sessions/{session_id}` | Retrieves conversation history |
+| `DELETE` | `/api/sessions/{session_id}` | Deletes a conversation |
+| `POST` | `/api/chat` | Sends a message and returns a response |
+| `POST` | `/api/chat/stream` | Sends a message and streams the response |
 
-  `POST`                  `/api/sessions`                Creates a conversation
-
-  `GET`                   `/api/sessions`                Lists conversations
-
-  `GET`                   `/api/sessions/{session_id}`   Retrieves conversation
-                                                         history
-
-  `DELETE`                `/api/sessions/{session_id}`   Deletes a conversation
-
-  `POST`                  `/api/chat`                    Sends a message and
-                                                         generates a response
-  ------------------------------------------------------------------------------
+Interactive API documentation is available at `/docs` when the backend is running.
 
 ### Example chat request
 
-``` json
+```json
 {
   "session_id": "YOUR_SESSION_ID",
   "message": "Explain how a Kalman filter works."
 }
 ```
 
-The chat response contains the session ID, generated response and token
-usage when returned by the inference API.
+The chat response includes the session ID and generated response. Token usage is included when returned by the inference API.
+
+---
 
 ## 💾 Conversation Storage
 
 Each conversation is stored in a separate JSONL file:
 
-``` text
+```text
 storage/
 └── sessions/
     ├── <session-id-1>.jsonl
@@ -307,82 +356,124 @@ storage/
 ```
 
 Each line represents an individual message, with fields such as:
+- `role`: `user` or `assistant`
+- `content`: message content
+- `timestamp`: message creation time
 
--   `role`: `user` or `assistant`
--   `content`: message content
--   `timestamp`: message creation time
+JSONL provides simple, inspectable persistence for the prototype. In the current deployment, the Docker named volume preserves this data across container replacement and application restarts.
 
-This provides simple, inspectable persistence for the prototype. The
-current storage is local to the application host; it is not yet a shared
-database service.
+The current implementation does **not** yet provide per-user session ownership or organization-level data isolation. The existing shared session store is suitable for the current personal deployment, but must be extended before opening the platform to independent users.
+
+---
 
 ## 🧪 Validation
 
 The prototype has been tested incrementally:
 
--   Verified allocation of an NVIDIA L4 GPU through Modal.
--   Deployed vLLM and loaded Qwen2.5-7B-Instruct.
--   Tested inference using an OpenAI-compatible Python client.
--   Started the FastAPI application and exercised its API routes.
--   Verified conversation creation, retrieval and deletion.
--   Tested the frontend in mock mode without GPU inference.
--   Successfully sent browser prompts through FastAPI to the
-    Modal-hosted model and displayed generated responses.
--   Verified multi-message conversation handling and JSONL persistence.
+- Verified allocation of GPU resources through Modal.
+- Deployed vLLM and loaded Qwen2.5-7B-Instruct.
+- Tested inference using an OpenAI-compatible Python client.
+- Started the FastAPI application and exercised its API routes.
+- Verified conversation creation, retrieval and deletion.
+- Tested the frontend in mock mode without GPU inference.
+- Successfully sent browser prompts through FastAPI to the Modal-hosted model.
+- Tested streaming responses.
+- Verified multi-message conversation handling and JSONL persistence.
+- Built and ran the application in Docker locally.
+- Deployed the container image to Amazon ECR and pulled it on EC2.
+- Deployed the application behind Nginx with HTTPS.
+- Tested access from multiple devices and verified that conversations persisted across them.
 
-These tests validate functional integration. They are not a controlled
-benchmark of model accuracy, throughput, latency or concurrent-user
-performance.
+These tests validate functional integration. They are not a controlled benchmark of model accuracy, throughput, latency or concurrent-user performance.
+
+---
 
 ## 🚧 Current Limitations
 
-NeuralForge is a working prototype. Current limitations include:
+NeuralForge is an evolving prototype. The current implementation has the following limitations:
 
--   Responses are returned as complete messages rather than streamed
-    tokens.
--   Markdown formatting, syntax-highlighted code blocks and mathematical
-    equation rendering are not yet fully implemented.
--   Session storage uses local JSONL files rather than a managed
-    database.
--   User authentication and multi-user access control are not
-    implemented.
--   The FastAPI application currently runs locally; Oracle Cloud
-    deployment is planned, not yet completed.
+- Session storage uses JSONL files rather than a managed database.
+- User authentication and per-user access control are not implemented.
+- Session data is shared by the current application instance; independent user isolation is not yet available.
+- File uploads and document extraction are not implemented.
+- Persistent knowledge bases and RAG are not implemented.
+- Web browsing and external tool execution are not implemented.
+- MCP integration and sandboxed file operations are not implemented.
+- Production-grade rate limiting, usage quotas and audit logging are still to be added.
+- Model quality, latency and concurrent-user capacity have not yet been evaluated through a formal benchmark.
 
-## 🔭 Roadmap
+---
 
--   [ ] Improve the chat interface and responsive layout.
--   [ ] Add Markdown rendering and formatted headings.
--   [ ] Add syntax-highlighted code blocks and copy-code controls.
--   [ ] Add LaTeX mathematical equation rendering.
--   [ ] Implement token-by-token streaming responses.
--   [ ] Deploy the FastAPI backend on Oracle Cloud Infrastructure.
--   [ ] Move conversation persistence to durable cloud storage or a
-    database.
--   [ ] Add authentication, access control, rate limiting and
-    monitoring.
--   [ ] Explore token-aware context management and persistent memory.
--   [ ] Extend the platform with controlled coding-assistant tools.
+## 🗺️ Roadmap
 
-## 🎯 Motivation
+The roadmap focuses on extending the existing backend through modular services and API endpoints while keeping the core application architecture intact.
 
-NeuralForge began as a Cloud Computing project to explore GPU-backed
-model deployment, inference serving and application integration.
+### Application foundation
 
-The longer-term goal is to evolve it into a modular personal AI
-assistant with persistent memory, coding capabilities and controlled
-interaction with development environments.
+- [x] Browser-based chat interface.
+- [x] FastAPI backend and session management.
+- [x] Remote inference through Modal and vLLM.
+- [x] Mock inference mode.
+- [x] Streaming responses.
+- [x] Docker-based application deployment.
+- [x] Cloud deployment with HTTPS.
+- [x] Persistent session storage across application restarts.
 
-The current implementation establishes the cloud inference and
-application foundation for that direction.
+### Document understanding and knowledge retrieval
+
+- [ ] File upload endpoint and frontend attachment interface.
+- [ ] Text extraction from PDF, DOCX, TXT, Markdown and spreadsheet files.
+- [ ] Image OCR and vision-model document understanding.
+- [ ] Conversation-scoped file context.
+- [ ] Persistent document library.
+- [ ] Embedding generation and vector storage.
+- [ ] Retrieval-augmented generation (RAG) with source references.
+
+### Multi-user platform and security
+
+- [ ] User authentication and session ownership.
+- [ ] Organization and workspace management.
+- [ ] Role-based access control (RBAC).
+- [ ] Document-level permission filtering.
+- [ ] API rate limits and per-user usage quotas.
+- [ ] Audit logs and security guardrails.
+
+### Tool use and coding capabilities
+
+- [ ] Controlled web-search tool.
+- [ ] Central MCP server for tool discovery and execution.
+- [ ] Permission-aware file browsing.
+- [ ] Sandboxed file editing with diff previews and user approval.
+- [ ] Project-aware coding assistance.
+
+### AI engineering and evaluation
+
+- [ ] Token-aware context management.
+- [ ] Persistent memory and conversation summarization.
+- [ ] Benchmark model quality, latency and inference cost.
+- [ ] Compare different open-source model sizes.
+- [ ] Evaluate retrieval quality, answer faithfulness and permission isolation.
+
+---
+
+## 🎯 Motivation and Direction
+
+NeuralForge began as a Cloud Computing project to explore GPU-backed model deployment, inference serving and application integration.
+
+It is evolving into a modular AI coding assistant and a research-engineering project focused on making open-source LLM infrastructure practical for individuals and small organizations.
+
+The longer-term goal is to make it possible to deploy a customized assistant using open-source models, connect it to private organizational knowledge, control access through roles and permissions, and extend its capabilities through controlled tools and integrations.
+
+The project is not intended to be just another chat interface around an LLM. Its focus is the engineering infrastructure around the model: deployment, orchestration, retrieval, security, tool execution and evaluation.
+
+---
 
 ## 👨‍💻 Author
 
-**Yashasvi Kumar Tiwari**\
-B.Tech -- Computer Science and Engineering\
+**Yashasvi Kumar Tiwari**  
+B.Tech — Computer Science and Engineering  
 Vellore Institute of Technology, Vellore
 
-------------------------------------------------------------------------
+---
 
-*Built as a Cloud Computing project, with the intention of evolving into
-a broader personal AI assistant platform.*
+*Built to explore cloud-based open-source LLM deployment and evolve into a modular AI assistant platform.*
