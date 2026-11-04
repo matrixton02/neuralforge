@@ -2,5 +2,6 @@
 .venv/
 __pycache__/
 *.pyc
+*_old.*
 storage/sessions
 images/
